@@ -142,9 +142,22 @@ class DecisionTree():
 
     def build_tree(self, data, depth=None):
         node = self.Node()
-        if self.measure_func(data[:, -1].astype(np.int32)) == 0:
+        ## --- check the X element are the same ---
+        checkSame = []
+        for i in range(data.shape[0] - 1):
+            if (data[i][:-1] == data[i+1][:-1]).all():
+                checkSame.append(True)
+            else:
+                checkSame.append(False)
+        ## ---------------- end -------------------
+        if self.measure_func(data[:, -1].astype(np.int32)) == 0:  # check impurity = 0
             node.predict_class = int(data[0, -1])
-        elif depth == 0:
+        elif len(data) == 0:                                      # check no element in a leaf
+            node.predict_class = 0
+        elif depth == 0:                                          # check depth = 0
+            label, cnt = np.unique(data[:, -1].astype(np.int32), return_counts=True)
+            node.predict_class = label[np.argmax(cnt)]
+        elif all(checkSame) == True:                              # check the same X element
             label, cnt = np.unique(data[:, -1].astype(np.int32), return_counts=True)
             node.predict_class = label[np.argmax(cnt)]
         else:
@@ -156,58 +169,11 @@ class DecisionTree():
             left_data = data[data[:, feature] < thres]
             right_data = data[data[:, feature] >= thres]
             if depth is None:
-                if len(left_data) == 0:       # if no element in the leaf, return 0. (only left will occur)
-                    node.predict_class = 0
-                else:
-                    checkSame = []
-                    for i in range(left_data.shape[0] - 1):
-                        if (left_data[i][:-1] == left_data[i+1][:-1]).all():
-                            checkSame.append(True)
-                        else:
-                            checkSame.append(False)
-                    if all(checkSame) == True:
-                        label, cnt = np.unique(left_data[:, -1].astype(np.int32), return_counts=True)
-                        node.predict_class = label[np.argmax(cnt)]
-                    else:
-                        node.left = self.build_tree(left_data)
-                    checkSame = []
-                    for i in range(right_data.shape[0] - 1):
-                        if (right_data[i][:-1] == right_data[i + 1][:-1]).all():
-                            checkSame.append(True)
-                        else:
-                            checkSame.append(False)
-                    if all(checkSame) == True:
-                        label, cnt = np.unique(right_data[:, -1].astype(np.int32), return_counts=True)
-                        node.predict_class = label[np.argmax(cnt)]
-                    else:
-                        node.right = self.build_tree(right_data)
-
+                node.left = self.build_tree(left_data)
+                node.right = self.build_tree(right_data)
             else:
-                if len(left_data) == 0:       # if no element in the leaf, return 0. (only left will occur)
-                    node.predict_class = 0
-                else:
-                    checkSame = []            # check whether the elements are the same, if True, pick the highest prob. (for random forest)
-                    for i in range(left_data.shape[0] - 1):
-                        if (left_data[i][:-1] == left_data[i + 1][:-1]).all():
-                            checkSame.append(True)
-                        else:
-                            checkSame.append(False)
-                    if all(checkSame) == True:
-                        label, cnt = np.unique(left_data[:, -1].astype(np.int32), return_counts=True)
-                        node.predict_class = label[np.argmax(cnt)]
-                    else:
-                        node.left = self.build_tree(left_data, depth-1)
-                checkSame = []
-                for i in range(right_data.shape[0] - 1):
-                    if (right_data[i][:-1] == right_data[i + 1][:-1]).all():
-                        checkSame.append(True)
-                    else:
-                        checkSame.append(False)
-                if all(checkSame) == True:
-                    label, cnt = np.unique(right_data[:, -1].astype(np.int32), return_counts=True)
-                    node.predict_class = label[np.argmax(cnt)]
-                else:
-                    node.right = self.build_tree(right_data, depth-1)
+                node.left = self.build_tree(left_data, depth-1)
+                node.right = self.build_tree(right_data, depth-1)
         return node
 
     def train(self, X, y):
@@ -398,11 +364,11 @@ class RandomForest():
 
 # In[12]:
 
-clf_10tree = RandomForest(n_estimators=10, max_features=np.sqrt(X_train.shape[1]), max_depth=10)
+clf_10tree = RandomForest(n_estimators=10, max_features=np.sqrt(X_train.shape[1]), max_depth=None)
 clf_10tree.train(X_train, y_train)
 _, acc = clf_10tree.predict(X_test, y_test)
 
-clf_100tree = RandomForest(n_estimators=100, max_features=np.sqrt(X_train.shape[1]), max_depth=10)
+clf_100tree = RandomForest(n_estimators=100, max_features=np.sqrt(X_train.shape[1]), max_depth=None)
 clf_100tree.train(X_train, y_train)
 _, acc = clf_100tree.predict(X_test, y_test)
 
