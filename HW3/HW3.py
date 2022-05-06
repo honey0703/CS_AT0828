@@ -120,7 +120,10 @@ class DecisionTree():
     def get_thres(self, data):
         thres = None
         feature = None
-        min_impurity = 1e10
+        split = False
+        min_impurity = None
+        impurity_in = self.measure_func(data[:, -1].astype(np.int32))
+        info_gain = 0
         (n, dim) = data.shape
         dim -= 1
         for i in range(dim):
@@ -134,11 +137,13 @@ class DecisionTree():
                 impurity = left_data.shape[0] * left_impurity
                 impurity += right_data.shape[0] * right_impurity
                 impurity /= data_sorted.shape[0]
-                if impurity <= min_impurity:
+                if impurity_in - impurity > info_gain:
+                    split = True
                     min_impurity = impurity
                     thres = t
                     feature = i
-        return feature, thres, min_impurity
+                    info_gain = impurity_in - impurity
+        return split, feature, thres, min_impurity
 
     def build_tree(self, data, depth=None):
         node = self.Node()
@@ -161,19 +166,23 @@ class DecisionTree():
             label, cnt = np.unique(data[:, -1].astype(np.int32), return_counts=True)
             node.predict_class = label[np.argmax(cnt)]
         else:
-            feature, thres, impurity = self.get_thres(data)
-            node.feature = feature
-            node.thres = thres
-            node.impurity = impurity
-            node.data_num = data.shape[0]
-            left_data = data[data[:, feature] < thres]
-            right_data = data[data[:, feature] >= thres]
-            if depth is None:
-                node.left = self.build_tree(left_data)
-                node.right = self.build_tree(right_data)
+            split, feature, thres, impurity = self.get_thres(data)
+            if split == True:
+                node.feature = feature
+                node.thres = thres
+                node.impurity = impurity
+                node.data_num = data.shape[0]
+                left_data = data[data[:, feature] < thres]
+                right_data = data[data[:, feature] >= thres]
+                if depth is None:
+                    node.left = self.build_tree(left_data)
+                    node.right = self.build_tree(right_data)
+                else:
+                    node.left = self.build_tree(left_data, depth-1)
+                    node.right = self.build_tree(right_data, depth-1)
             else:
-                node.left = self.build_tree(left_data, depth-1)
-                node.right = self.build_tree(right_data, depth-1)
+                label, cnt = np.unique(data[:, -1].astype(np.int32), return_counts=True)
+                node.predict_class = label[np.argmax(cnt)]
         return node
 
     def train(self, X, y):
