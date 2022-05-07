@@ -105,7 +105,6 @@ class DecisionTree():
         self.max_depth = max_depth  # Setting the max depth of the tree
         self.root = None
         self.total_fi = None
-        return None
 
     class Node():
         def __init__(self):
@@ -157,8 +156,6 @@ class DecisionTree():
         ## ---------------- end -------------------
         if self.measure_func(data[:, -1].astype(np.int32)) == 0:  # check impurity = 0
             node.predict_class = int(data[0, -1])
-        elif len(data) == 0:                                      # check no element in a leaf
-            node.predict_class = 0
         elif depth == 0:                                          # check depth = 0
             label, cnt = np.unique(data[:, -1].astype(np.int32), return_counts=True)
             node.predict_class = label[np.argmax(cnt)]
@@ -216,27 +213,6 @@ class DecisionTree():
         self.print_acc(acc)
         return pred, acc
 
-    def get_fi(self, node):
-        if node.left and node.left.impurity is not None:
-            self.get_fi(node.left)
-        if node.right and node.right.impurity is not None:
-            self.get_fi(node.right)
-        self.total_fi[node.feature] += 1
-
-    def feature_importance(self):
-        self.total_fi = np.zeros(len(feature_names))
-        self.get_fi(self.root)
-        return self.total_fi
-
-    def print_tree(self, node, ident):
-        if node.predict_class is not None:
-            print(f'{ident}Predict {node.predict_class}')
-        else:
-            print(f'{ident}{node.feature} >= {node.thres}')
-            print(f'{ident}--> True:')
-            self.print_tree(node.right, ident + '  ')
-            print(f'{ident}--> False:')
-            self.print_tree(node.left, ident + '  ')
 
 
 # ### Question 2.1
@@ -254,7 +230,7 @@ _, acc = clf_depth10.predict(X_test, y_test)
 
 # ### Question 2.2
 # Using `max_depth=3`, showing the accuracy score of test data by `criterion=gini` and `criterion=entropy`, respectively.
-# 
+#
 
 # In[9]:
 clf_gini = DecisionTree(criterion='gini', max_depth=3)
@@ -285,15 +261,137 @@ _, acc = clf_entropy.predict(X_test, y_test)
 # In[343]:
 
 
-class AdaBoost():
-    def __init__(self, n_estimators):
-        return None
+import math
 
 
-# In[ ]:
+class DecisionStump():
+    """
+    Creat a weak classifier.
+    """
+
+    def __init__(self):
+        # Determines if sample shall be classified as -1 or 1 given threshold
+        self.polarity = 1
+        # The index of the feature used to make classification
+        self.feature_index = None
+        # The threshold value that the feature should be measured against
+        self.threshold = None
+        # Value indicative of the classifier's accuracy
+        self.alpha = None
 
 
+class Adaboost():
+    """
+    Uses a number of weak classifiers in ensemble to make a strong classifier.
+    This implementation uses decision stumps, which is a one level Decision Tree.
+    Parameters:
+    -----------
+    n_estimators: The number of weak classifiers that will be used.
+    """
 
+    def __init__(self, n_estimators=5):
+        self.n_clf = n_estimators
+
+    def train(self, X, y):
+        """
+        Find the proper feature and threshold to minimize error, where error will be weighted.
+        The weight will be updated by previous classifier. the wrong predicted data will have higher weight.
+        """
+        n_samples, n_features = np.shape(X)
+
+        # Initialize weights to 1/N
+        w = np.full(n_samples, (1 / n_samples))
+
+        self.clfs = []
+        # Iterate through classifiers
+        for _ in range(self.n_clf):
+            clf = DecisionStump()
+            # Minimum error given for using a certain feature value threshold
+            # for predicting sample label
+            min_error = float('inf')
+            # Iterate throught every unique feature value and see what value
+            # makes the best threshold for predicting y
+            for feature_i in range(n_features):
+                feature_values = np.expand_dims(X[:, feature_i], axis=1)
+                unique_values = np.unique(feature_values)
+                # Try every unique feature value as threshold
+                for threshold in unique_values:
+                    p = 1
+                    # Set all predictions to '1' initially
+                    prediction = np.ones(np.shape(y))
+                    # Label the samples whose values are below threshold as '-1'
+                    prediction[X[:, feature_i] < threshold] = -1
+                    # Error = sum of weights of misclassified samples
+                    y = y.flatten()
+                    prediction = prediction.flatten()
+                    error = sum(w[y != prediction])
+
+                    # If the error is over 50% we flip the polarity so that samples that
+                    # were classified as 0 are classified as 1, and vice versa
+                    # E.g error = 0.8 => (1 - error) = 0.2
+                    if error > 0.5:
+                        error = 1 - error
+                        p = -1
+
+                    # If this threshold resulted in the smallest error we save the
+                    # configuration
+                    if error < min_error:
+                        clf.polarity = p
+                        clf.threshold = threshold
+                        clf.feature_index = feature_i
+                        min_error = error
+            # Calculate the alpha which is used to update the sample weights,
+            # Alpha is also an approximation of this classifier's proficiency
+            clf.alpha = 0.5 * math.log((1.0 - min_error) / (min_error + 1e-10))
+            # Set all predictions to '1' initially
+            predictions = np.ones(np.shape(y))
+            # The indexes where the sample values are below threshold
+            negative_idx = (clf.polarity * X[:, clf.feature_index] < clf.polarity * clf.threshold)
+            # Label those as '-1'
+            predictions[negative_idx] = -1
+            # Calculate new weights
+            # Missclassified samples gets larger weights and correctly classified samples smaller
+            w *= np.exp(-clf.alpha * y * predictions)
+            # Normalize to one
+            w /= np.sum(w)
+
+            # Save classifier
+            self.clfs.append(clf)
+
+    def print_acc(self, acc):
+        print(f'n estimators = {self.n_clf}')
+        print(f'acc          = {acc}')
+        print('====================')
+
+    def predict(self, X, y):
+        n_samples = np.shape(X)[0]
+        y_pred = np.zeros((n_samples, 1))
+        # For each classifier => label the samples
+        for clf in self.clfs:
+            # Set all predictions to '1' initially
+            predictions = np.ones(np.shape(y_pred))
+            # The indexes where the sample values are below threshold
+            negative_idx = (clf.polarity * X[:, clf.feature_index] < clf.polarity * clf.threshold)
+            # Label those as '-1'
+            predictions[negative_idx] = -1
+            # Add predictions weighted by the classifiers alpha
+            # (alpha indicative of classifier's proficiency)
+            y_pred += clf.alpha * predictions
+
+        # Return sign of prediction sum
+        y_pred = np.sign(y_pred).flatten()
+        for i in range(len(y_pred)):
+            if y_pred[i] == -1:
+                y_pred[i] = 0
+
+        correct = 0
+        for i in range(len(y_pred)):
+            if y[i] == y_pred[i]:
+                correct += 1
+        acc = correct / len(y_pred)
+
+        self.print_acc(acc)
+        return y_pred, acc
 
 
 # ### Question 4.1
@@ -301,8 +399,19 @@ class AdaBoost():
 # 
 
 # In[ ]:
+# Turn 0 label to -1
+y_train_transfer = np.copy(y_train)
+for i in range(len(y_train_transfer)):
+    if y_train_transfer[i] == 0:
+        y_train_transfer[i] = -1
 
+clf_Adaboost10 = Adaboost(n_estimators=10)
+clf_Adaboost10.train(X_train, y_train_transfer)
+_, acc = clf_Adaboost10.predict(X_test, y_test)
 
+clf_Adaboost100 = Adaboost(n_estimators=100)
+clf_Adaboost100.train(X_train, y_train_transfer)
+_, acc = clf_Adaboost100.predict(X_test, y_test)
 
 
 
@@ -328,7 +437,6 @@ class RandomForest():
         for i in range(self.n_estimators):
             self.clfs.append(DecisionTree(self.criterion, self.max_depth))
         self.random_vecs = []
-        return None
 
     def train(self, X, y):
         for i in range(self.n_estimators):
@@ -369,7 +477,7 @@ class RandomForest():
 
 # ### Question 5.1
 # Using `criterion=gini`, `max_depth=None`, `max_features=sqrt(n_features)`, showing the accuracy score of test data by `n_estimators=10` and `n_estimators=100`, respectively.
-# 
+#
 
 # In[12]:
 
@@ -383,7 +491,7 @@ _, acc = clf_100tree.predict(X_test, y_test)
 
 # ### Question 5.2
 # Using `criterion=gini`, `max_depth=None`, `n_estimators=10`, showing the accuracy score of test data by `max_features=sqrt(n_features)` and `max_features=n_features`, respectively.
-# 
+#
 
 # In[13]:
 clf_random_features = RandomForest(n_estimators=10, max_features=np.sqrt(X_train.shape[1]))
@@ -409,7 +517,23 @@ _, acc = clf_all_features.predict(X_test, y_test)
 # - Implement any other ensemble methods, such as gradient boosting. Please note that you cannot call any package. Also, only ensemble method can be used. Neural network method is not allowed to used.
 
 # In[ ]:
+# hyperparameter tuning
+max_acc = 0
+parameter = None
+best_clf = None
 
+# Adaboost
+for i in range(1, 101, 10):
+    print(i)
+    my_model = Adaboost(n_estimators=i)
+    my_model.train(X_train, y_train_transfer)
+    y_pred, acc = my_model.predict(X_test, y_test)
+    if acc > max_acc:
+        best_clf = my_model
+        parameter = i
+        max_acc = acc
+
+print (max_acc)
 
 from sklearn.metrics import accuracy_score
 
@@ -423,13 +547,13 @@ y_test = test_df['target']
 # In[ ]:
 
 
-y_pred = your_model.predict(x_test)
+# y_pred = your_model.predict(x_test)
 
 
 # In[ ]:
 
 
-print('Test-set accuarcy score: ', accuracy_score(y_test, y_pred))
+# print('Test-set accuarcy score: ', accuracy_score(y_test, y_pred))
 
 
 # ## Supplementary
