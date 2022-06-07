@@ -70,7 +70,7 @@ best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 
 print ('================ Build Model =================')
-net = ResNet18()
+net = ResNet50()
 net = net.to(device)
 
 if device == 'cuda':
@@ -89,8 +89,8 @@ if args.resume:
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=args.lr,
                       momentum=0.9, weight_decay=5e-4)
-# scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=300)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[300,400,450], gamma=0.1, last_epoch=-1)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+# scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[300,400,450], gamma=0.1, last_epoch=-1)
 
 # Training
 def train(epoch):
@@ -161,6 +161,7 @@ def valid(epoch):
 # Testing
 def test():
     global best_acc
+    net.load_state_dict(torch.load('./checkpoint/ckpt.pth'))
     net.eval()
     test_loss = 0
     correct = 0
@@ -182,21 +183,22 @@ def test():
 
 hist_train = []
 hist_val = []
-for epoch in range(start_epoch, start_epoch+500):
+for epoch in range(start_epoch, start_epoch+200):
     hist_train = train(epoch)
     hist_val = valid(epoch)
     test()
     scheduler.step()
+    
+    # Plot loss chart
+    plt.figure(figsize=(10,5))
+    plt.title("Training and Validation Loss")
+    plt.plot(hist_val,label="val")
+    plt.plot(hist_train,label="train")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig("Loss Chart.png")
 
-# Plot loss chart
-plt.figure(figsize=(10,5))
-plt.title("Training and Validation Loss")
-plt.plot(hist_val,label="val")
-plt.plot(hist_train,label="train")
-plt.xlabel("Epochs")
-plt.ylabel("Loss")
-plt.legend()
-plt.savefig("Loss Chart.png")
 
 
 
