@@ -19,15 +19,36 @@ import matplotlib.pyplot as plt
 ## Load data
 print ("=============== Load Data ===============")
 
-x_train = np.load("x_train.npy")
-y_train = np.load("y_train.npy")
-print(y_train.shape)
+X_train = np.load("x_train.npy")
+Y_train = np.load("y_train.npy")
+print(X_train.shape)
+print(Y_train.shape)
 # Train-validate split
-# np.random.seed(2)
-# np.random.shuffle(x_train)
-# np.random.shuffle(y_train)
-x_train, x_val = x_train[:45000,:], x_train[45000:,:]
-y_train, y_val = y_train[:45000,:], y_train[45000:,:]
+# random shuffle
+x_train = np.zeros((45000, 32, 32, 3))
+y_train = np.zeros((45000, 1))
+x_val = np.zeros((5000, 32, 32, 3))
+y_val = np.zeros((5000, 1))
+np.random.seed(2)
+arr = np.arange(50000)
+np.random.shuffle(arr)
+for i in range(45000):
+    num = arr[i]
+    x_train[i] = X_train[num]
+    y_train[i] = Y_train[num]
+for i in range(5000):
+    num = arr[i+4999]
+    x_val[i] = X_train[num]
+    y_val[i] = Y_train[num]
+
+print(x_train[-1])
+print(y_train[-1])
+print(x_val[-1])
+print(y_val[-1])
+
+#non-random shuffle
+# x_train, x_val = x_train[:45000,:], x_train[45000:,:]
+# y_train, y_val = y_train[:45000,:], y_train[45000:,:]
 
 x_test = np.load("x_test.npy")
 y_test = np.load("y_test.npy")
@@ -68,6 +89,7 @@ args = parser.parse_args()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
+print ('Environment done.')
 
 print ('================ Build Model =================')
 net = ResNet50()
@@ -160,8 +182,9 @@ def valid(epoch):
 
 # Testing
 def test():
-    global best_acc
-    net.load_state_dict(torch.load('./checkpoint/ckpt.pth'))
+    # global best_acc
+    checkpoint = torch.load('./checkpoint/ckpt.pth')
+    net.load_state_dict(checkpoint['net'])
     net.eval()
     test_loss = 0
     correct = 0
@@ -180,16 +203,16 @@ def test():
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                          % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
     
+    print ("\nfinal acc: ", correct/total)
 
 hist_train = []
 hist_val = []
 for epoch in range(start_epoch, start_epoch+200):
     hist_train = train(epoch)
     hist_val = valid(epoch)
-    test()
     scheduler.step()
     
-    # Plot loss chart
+    #Plot loss chart
     plt.figure(figsize=(10,5))
     plt.title("Training and Validation Loss")
     plt.plot(hist_val,label="val")
@@ -199,6 +222,7 @@ for epoch in range(start_epoch, start_epoch+200):
     plt.legend()
     plt.savefig("Loss Chart.png")
 
+test()
 
 
 
