@@ -12,7 +12,7 @@ import os
 import numpy as np
 import argparse
 
-from models import *
+from ResNet import *
 from utils import progress_bar
 import matplotlib.pyplot as plt
 
@@ -41,12 +41,7 @@ for i in range(5000):
     x_val[i] = X_train[num]
     y_val[i] = Y_train[num]
 
-print(x_train[-1])
-print(y_train[-1])
-print(x_val[-1])
-print(y_val[-1])
-
-#non-random shuffle
+# non-random shuffle
 # x_train, x_val = x_train[:45000,:], x_train[45000:,:]
 # y_train, y_val = y_train[:45000,:], y_train[45000:,:]
 
@@ -76,6 +71,8 @@ testloader = DataLoader(TensorDataset(x_test_tensor, y_test_tensor), batch_size=
 class_index = {'airplane': 0, 'automobile': 1, 'bird': 2, 'cat': 3, 'deer': 4,
                'dog': 5, 'frog': 6,'horse': 7,'ship': 8, 'truck': 9}
 print(np.unique(y_train))
+unique, counts = np.unique(y_train, return_counts=True)
+print(dict(zip(unique, counts)))
 
 
 ## Build Model (pytorch)
@@ -92,7 +89,7 @@ start_epoch = 0  # start from epoch 0 or last checkpoint epoch
 print ('Environment done.')
 
 print ('================ Build Model =================')
-net = ResNet50()
+net = ResNet18()
 net = net.to(device)
 
 if device == 'cuda':
@@ -205,24 +202,27 @@ def test():
     
     print ("\nfinal acc: ", correct/total)
 
-hist_train = []
-hist_val = []
-for epoch in range(start_epoch, start_epoch+200):
-    hist_train = train(epoch)
-    hist_val = valid(epoch)
-    scheduler.step()
-    
-    #Plot loss chart
-    plt.figure(figsize=(10,5))
-    plt.title("Training and Validation Loss")
-    plt.plot(hist_val,label="val")
-    plt.plot(hist_train,label="train")
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.savefig("Loss Chart.png")
 
-test()
+if __name__ == '__main__':
+    hist_train = []
+    hist_val = []
+    for epoch in range(start_epoch, start_epoch+200):
+        hist_train = train(epoch)
+        hist_val = valid(epoch)
+        scheduler.step()
+
+        #Plot loss chart
+        plt.figure(figsize=(10,5))
+        plt.title("Training and Validation Loss")
+        plt.plot(hist_val,label="val")
+        plt.plot(hist_train,label="train")
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.savefig("Loss Chart.png")
+
+    # testinig
+    test()
 
 
 
