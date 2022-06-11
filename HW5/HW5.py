@@ -7,6 +7,7 @@ from torch.utils.data import TensorDataset, DataLoader
 
 import torchvision
 import torchvision.transforms as transforms
+from torchvision.transforms import functional as TF
 
 import os
 import numpy as np
@@ -29,7 +30,7 @@ x_train = np.zeros((45000, 32, 32, 3))
 y_train = np.zeros((45000, 1))
 x_val = np.zeros((5000, 32, 32, 3))
 y_val = np.zeros((5000, 1))
-np.random.seed(2)
+np.random.seed(3)
 arr = np.arange(50000)
 np.random.shuffle(arr)
 for i in range(45000):
@@ -51,6 +52,23 @@ y_test = np.load("y_test.npy")
 print(x_train.shape[0], 'train samples')
 print(x_val.shape[0], 'val samples')
 print(x_test.shape[0], 'test samples')
+
+# Data Augmentation
+print ("=============== Data Augmentation ===============")
+x_aug = np.zeros((45000, 32, 32, 3))
+trans_toPIL = transforms.ToPILImage()
+for i in range(x_train.shape[0]):
+    img_pil = trans_toPIL(x_train[i].astype(np.uint8))
+    transform = transforms.Compose([
+    transforms.RandomHorizontalFlip(p=1.0),
+    transforms.RandomVerticalFlip(p=0.5),
+    ])
+    new_img = transform(img_pil)
+    img_np = np.asarray(new_img)
+    x_aug[i] = img_np.astype(np.float64)
+
+x_train = np.concatenate([x_train, x_aug])
+y_train = np.concatenate([y_train, y_train])
 
 # Transform to DataLoader
 x_train_tensor = torch.Tensor(x_train).permute(0, 3, 1, 2)
