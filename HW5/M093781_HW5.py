@@ -57,26 +57,48 @@ print(x_test.shape[0], 'test samples')
 print ("=============== Data Augmentation ===============")
 trans_toPIL = transforms.ToPILImage()
 # Normalize
-mean = [0.5, 0.5, 0.5]
-std = [0.5, 0.5, 0.5]
-for i in range(x_train.shape[0]):
-    img_pil = trans_toPIL(x_train[i].astype(np.uint8))
-    transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean, std), 
-    transforms.ToPILImage() 
-    ])
-    new_img = transform(img_pil)
-    img_np = np.asarray(new_img)
-    x_train[i] = img_np.astype(np.float64)
+# mean = [0.5, 0.5, 0.5]
+# std = [0.5, 0.5, 0.5]
+# for i in range(x_train.shape[0]):
+#     img_pil = trans_toPIL(x_train[i].astype(np.uint8))
+#     transform = transforms.Compose([
+#     transforms.ToTensor(),
+#     transforms.Normalize(mean, std), 
+#     transforms.ToPILImage() 
+#     ])
+#     new_img = transform(img_pil)
+#     img_np = np.asarray(new_img)
+#     x_train[i] = img_np.astype(np.float64)
 
+# for i in range(x_val.shape[0]):
+#     img_pil = trans_toPIL(x_val[i].astype(np.uint8))
+#     transform = transforms.Compose([
+#     transforms.ToTensor(),
+#     transforms.Normalize(mean, std), 
+#     transforms.ToPILImage() 
+#     ])
+#     new_img = transform(img_pil)
+#     img_np = np.asarray(new_img)
+#     x_val[i] = img_np.astype(np.float64)
+    
+# for i in range(x_test.shape[0]):
+#     img_pil = trans_toPIL(x_test[i].astype(np.uint8))
+#     transform = transforms.Compose([
+#     transforms.ToTensor(),
+#     transforms.Normalize(mean, std), 
+#     transforms.ToPILImage() 
+#     ])
+#     new_img = transform(img_pil)
+#     img_np = np.asarray(new_img)
+#     x_test[i] = img_np.astype(np.float64)
+    
 # Hori / vert flip
 x_aug = np.zeros((45000, 32, 32, 3))
 for i in range(x_train.shape[0]):
     img_pil = trans_toPIL(x_train[i].astype(np.uint8))
     transform = transforms.Compose([
-    transforms.RandomHorizontalFlip(p=1.0)
-    # ,transforms.RandomVerticalFlip(p=0.5),
+    transforms.RandomHorizontalFlip(p=1.0),
+    transforms.RandomVerticalFlip(p=0.5),
     ])
     new_img = transform(img_pil)
     img_np = np.asarray(new_img)
@@ -84,6 +106,7 @@ for i in range(x_train.shape[0]):
 
 x_train = np.concatenate([x_train, x_aug])
 y_train = np.concatenate([y_train, y_train])
+
 
 # Transform to DataLoader
 x_train_tensor = torch.Tensor(x_train).permute(0, 3, 1, 2)
