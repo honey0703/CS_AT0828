@@ -55,13 +55,28 @@ print(x_test.shape[0], 'test samples')
 
 # Data Augmentation
 print ("=============== Data Augmentation ===============")
-x_aug = np.zeros((45000, 32, 32, 3))
 trans_toPIL = transforms.ToPILImage()
+# Normalize
+mean = [0.5, 0.5, 0.5]
+std = [0.5, 0.5, 0.5]
 for i in range(x_train.shape[0]):
     img_pil = trans_toPIL(x_train[i].astype(np.uint8))
     transform = transforms.Compose([
-    transforms.RandomHorizontalFlip(p=1.0),
-    transforms.RandomVerticalFlip(p=0.5),
+    transforms.ToTensor(),
+    transforms.Normalize(mean, std), 
+    transforms.ToPILImage() 
+    ])
+    new_img = transform(img_pil)
+    img_np = np.asarray(new_img)
+    x_train[i] = img_np.astype(np.float64)
+
+# Hori / vert flip
+x_aug = np.zeros((45000, 32, 32, 3))
+for i in range(x_train.shape[0]):
+    img_pil = trans_toPIL(x_train[i].astype(np.uint8))
+    transform = transforms.Compose([
+    transforms.RandomHorizontalFlip(p=1.0)
+    # ,transforms.RandomVerticalFlip(p=0.5),
     ])
     new_img = transform(img_pil)
     img_np = np.asarray(new_img)
